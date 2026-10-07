@@ -1,0 +1,326 @@
+PRACTICAL NO. 5: Working with URL Routing and Dependency InjectionQuestion 1: Create an ASP.NET Core Web API application named RoutingDIExample and configure it to use
+controllers.
+File: Program.cs
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddControllers();
+builder.Services.AddOpenApi();
+var app = builder.Build();
+if (app.Environment.IsDevelopment())
+{
+ app.MapOpenApi();
+}
+app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers();
+app.Run();
+Create the controller:
+10. Right-click the Controllers folder.
+11. Select Add > Controller.
+12. Choose API Controller - Empty.
+13. Name it StudentController.cs.
+File: Controllers/StudentController.cs
+using Microsoft.AspNetCore.Mvc;
+namespace RoutingDIExample.Controllers
+{
+ASP.NET Core Practical – URL Routing and Dependency Injection
+ [ApiController]
+ [Route("api/students")]
+ public class StudentController : ControllerBase
+ {
+ [HttpGet]
+ public IActionResult Get()
+ {
+ return Ok("Student Management System is running.");
+ }
+ }
+}
+Run and test:
+GET https://localhost:xxxx/api/students
+Expected output:
+Student Management System is running.
+2. Implement URL Routing with a Route Parameter
+Question 2: Modify the StudentController to accept a student ID through the URL and display the student ID.
+File: Controllers/StudentController.cs
+using Microsoft.AspNetCore.Mvc;
+namespace RoutingDIExample.Controllers
+{
+ [ApiController]
+ [Route("api/students")]
+ public class StudentController : ControllerBase
+ {
+ [HttpGet]
+ public IActionResult Get()
+ {
+ return Ok("Student Management System is running.");
+ }
+ [HttpGet("{id}")]
+ public IActionResult GetStudent(int id)
+ {
+ return Ok("Student ID: " + id);
+ }
+ }
+}
+Test URL:
+GET https://localhost:xxxx/api/students/101
+Expected output:
+Student ID: 101
+Route used:
+api/students/{id}
+ASP.NET Core Practical – URL Routing and Dependency Injection
+3. Implement a Custom URL Route
+Question 3: Create a custom route that accepts a student ID and displays the student details page.
+File: Controllers/StudentController.cs
+using Microsoft.AspNetCore.Mvc;
+namespace RoutingDIExample.Controllers
+{
+ [ApiController]
+ [Route("api/students")]
+ public class StudentController : ControllerBase
+ {
+ [HttpGet]
+ public IActionResult Get()
+ {
+ return Ok("Student Management System is running.");
+ }
+ [HttpGet("{id}")]
+ public IActionResult GetStudent(int id)
+ {
+ return Ok("Student ID: " + id);
+ }
+ [HttpGet("{id}/details")]
+ public IActionResult GetStudentDetails(int id)
+ {
+ return Ok("Details of Student ID: " + id);
+ }
+ }
+}
+Test URL:
+GET https://localhost:xxxx/api/students/101/details
+Expected output:
+Details of Student ID: 101
+4. Create an Interface for Dependency Injection
+Question 4: Create an IStudentService interface that defines a method for retrieving student details.
+14. Right-click the project and select Add > New Folder.
+15. Name the folder Services.
+16. Right-click Services > Add > Class.
+17. Name the file IStudentService.cs.
+File: Services/IStudentService.cs
+namespace RoutingDIExample.Services
+{
+ public interface IStudentService
+ {
+ASP.NET Core Practical – URL Routing and Dependency Injection
+ object GetStudentDetails(int id);
+ }
+}
+5. Create the Student Service
+Question 5: Create a StudentService class that implements IStudentService and returns student information.
+File: Services/StudentService.cs
+namespace RoutingDIExample.Services
+{
+ public class StudentService : IStudentService
+ {
+ public object GetStudentDetails(int id)
+ {
+ if (id == 101)
+ {
+ return new
+ {
+ Id = 101,
+ Name = "Rahul Sharma",
+ Course = "BCA"
+ };
+ }
+ if (id == 102)
+ {
+ return new
+ {
+ Id = 102,
+ Name = "Priya Patil",
+ Course = "BCA"
+ };
+ }
+ if (id == 103)
+ {
+ return new
+ {
+ Id = 103,
+ Name = "Amit Joshi",
+ Course = "BCA"
+ };
+ }
+ return new
+ {
+ Message = "Student not found"
+ };
+ }
+ }
+}
+6. Register the Service with Dependency Injection
+ASP.NET Core Practical – URL Routing and Dependency Injection
+Question 6: Register StudentService with the ASP.NET Core Dependency Injection container using the Scoped
+lifetime.
+File: Program.cs
+using RoutingDIExample.Services;
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddControllers();
+builder.Services.AddOpenApi();
+// Register StudentService with Dependency Injection
+builder.Services.AddScoped<IStudentService, StudentService>();
+var app = builder.Build();
+if (app.Environment.IsDevelopment())
+{
+ app.MapOpenApi();
+}
+app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers();
+app.Run();
+Important statement:
+builder.Services.AddScoped<IStudentService, StudentService>();
+9. Inject the Service into the Controller
+Question 7: Inject IStudentService into StudentController using constructor Dependency Injection and use it to
+retrieve student details.
+File: Controllers/StudentController.cs
+using Microsoft.AspNetCore.Mvc;
+using RoutingDIExample.Services;
+namespace RoutingDIExample.Controllers
+{
+ [ApiController]
+ [Route("api/students")]
+ public class StudentController : ControllerBase
+ {
+ private readonly IStudentService _studentService;
+ public StudentController(IStudentService studentService)
+ {
+ _studentService = studentService;
+ASP.NET Core Practical – URL Routing and Dependency Injection
+ }
+ [HttpGet("{id}/details")]
+ public IActionResult GetStudentDetails(int id)
+ {
+ var student = _studentService.GetStudentDetails(id);
+ return Ok(student);
+ }
+ }
+}
+Test URL:
+GET https://localhost:xxxx/api/students/101/details
+Expected output:
+{
+ "id": 101,
+ "name": "Rahul Sharma",
+ "course": "BCA"
+}
+10. Add a Second Route Using the Injected Service
+Question 8: Add a route to retrieve only the name of a student using Dependency Injection.
+File: Services/IStudentService.cs
+namespace RoutingDIExample.Services
+{
+ public interface IStudentService
+ {
+ object GetStudentDetails(int id);
+ string GetStudentName(int id);
+ }
+}
+File: Services/StudentService.cs
+namespace RoutingDIExample.Services
+{
+ public class StudentService : IStudentService
+ {
+ public object GetStudentDetails(int id)
+ {
+ if (id == 101)
+ {
+ return new
+ {
+ Id = 101,
+ Name = "Rahul Sharma",
+ Course = "BCA"
+ };
+ }
+ if (id == 102)
+ASP.NET Core Practical – URL Routing and Dependency Injection
+ {
+ return new
+ {
+ Id = 102,
+ Name = "Priya Patil",
+ Course = "BCA"
+ };
+ }
+ if (id == 103)
+ {
+ return new
+ {
+ Id = 103,
+ Name = "Amit Joshi",
+ Course = "BCA"
+ };
+ }
+ return new
+ {
+ Message = "Student not found"
+ };
+ }
+ public string GetStudentName(int id)
+ {
+ if (id == 101)
+ return "Rahul Sharma";
+ if (id == 102)
+ return "Priya Patil";
+ if (id == 103)
+ return "Amit Joshi";
+ return "Student not found";
+ }
+ }
+}
+File: Controllers/StudentController.cs
+using Microsoft.AspNetCore.Mvc;
+using RoutingDIExample.Services;
+namespace RoutingDIExample.Controllers
+{
+ [ApiController]
+ [Route("api/students")]
+ public class StudentController : ControllerBase
+ {
+ private readonly IStudentService _studentService;
+ public StudentController(IStudentService studentService)
+ {
+ _studentService = studentService;
+ }
+ASP.NET Core Practical – URL Routing and Dependency Injection
+ [HttpGet("{id}/details")]
+ public IActionResult GetStudentDetails(int id)
+ {
+ var student = _studentService.GetStudentDetails(id);
+ return Ok(student);
+ }
+ [HttpGet("{id}/name")]
+ public IActionResult GetStudentName(int id)
+ {
+ string name = _studentService.GetStudentName(id);
+ return Ok(name);
+ }
+ }
+}
+Test URL:
+GET https://localhost:xxxx/api/students/101/name
+Expected output:
+Rahul Sharma
+10. Final Project Structure
+RoutingDIExample
+│
+├── Controllers
+│ └── StudentController.cs
+│
+├── Services
+│ ├── IStudentService.cs
+│ └── StudentService.cs
+│
+├── Properties
+│ └── launchSettings.json
+│
+├── Program.cs
+├── appsettings.json
+└── RoutingDIExample.csproj

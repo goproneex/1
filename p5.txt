@@ -1,0 +1,328 @@
+# Practical No. 5: Implementing Security in ASP.NET Core MVC
+
+# 1. Create Project
+
+Open **Visual Studio 2026**.
+
+Select:
+
+**Create a new project → ASP.NET Core Web App (Model-View-Controller)**
+
+Project name:
+
+```text
+SecurityApp
+```
+
+For **Authentication type**, select:
+
+```text
+Individual Accounts
+```
+
+Then click **Create**.
+
+> This automatically adds ASP.NET Core Identity for registration and login.
+
+---
+
+# 2. Install Required Packages
+
+Open:
+
+**Tools → NuGet Package Manager → Package Manager Console**
+
+Run:
+
+```powershell
+Install-Package Microsoft.EntityFrameworkCore.Sqlite
+Install-Package Microsoft.EntityFrameworkCore.Tools
+
+# 3. Create ApplicationDbContext
+
+Create:
+
+```text
+Data/ApplicationDbContext.cs
+
+```csharp
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+
+namespace SecurityApp.Data
+{
+    public class ApplicationDbContext : IdentityDbContext
+    {
+        public ApplicationDbContext(
+            DbContextOptions<ApplicationDbContext> options)
+            : base(options)
+        {
+        }
+    }
+}
+
+# 4. Configure Database
+
+Open:
+
+```text
+appsettings.json
+```
+Add:
+
+```json
+"ConnectionStrings": {
+  "DefaultConnection": "Data Source=security.db"
+}
+# 5. Configure Identity in `Program.cs`
+
+Use:
+
+```csharp
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using SecurityApp.Data;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlite(
+        builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddDefaultIdentity<IdentityUser>()
+    .AddRoles<IdentityRole>()
+    .AddEntityFrameworkStores<ApplicationDbContext>();
+
+builder.Services.AddControllersWithViews();
+
+var app = builder.Build();
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+
+app.UseRouting();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Home}/{action=Index}/{id?}");
+
+app.MapRazorPages();
+
+app.Run();
+```
+ 6. Create Database
+
+Open **Package Manager Console**.
+
+Run:
+
+```powershell
+Add-Migration InitialIdentity
+Update-Database
+```
+
+This creates the Identity tables in:
+
+```text
+security.db
+
+# 7. Create Home Controller
+
+Create:
+
+```text
+Controllers/HomeController.cs
+```
+
+```csharp
+using Microsoft.AspNetCore.Mvc;
+
+namespace SecurityApp.Controllers
+{
+    public class HomeController : Controller
+    {
+        public IActionResult Index()
+        {
+            return View();
+        }
+
+        public IActionResult Dashboard()
+        {
+            return View();
+        }
+
+        public IActionResult Admin()
+        {
+            return View();
+        }
+    }
+}
+
+# 8. Protect Dashboard
+
+Add `[Authorize]` before the Dashboard action.
+
+```csharp
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace SecurityApp.Controllers
+{
+    public class HomeController : Controller
+    {
+        public IActionResult Index()
+        {
+            return View();
+        }
+
+        [Authorize]
+        public IActionResult Dashboard()
+        {
+            return View();
+        }
+
+        [Authorize(Roles = "Admin")]
+        public IActionResult Admin()
+        {
+            return View();
+        }
+    }
+}
+# 9. Create Views
+
+Create:
+
+```text
+Views/Home/Index.cshtml
+```
+
+### Public Page
+
+```html
+<h2>Welcome to Security App</h2>
+
+<p>This page is available to everyone.</p>
+
+<a asp-action="Dashboard">Dashboard</a>
+<br>
+<a asp-action="Admin">Admin Page</a>
+
+## 10. Dashboard View
+
+Create:
+
+```text
+Views/Home/Dashboard.cshtml
+```
+
+```html
+<h2>User Dashboard</h2>
+
+<p>Welcome! You are logged in.</p>
+```
+
+Because the controller has:
+
+```csharp
+[Authorize]
+```
+
+the page requires login.
+
+---
+
+# 11. Admin View
+
+Create:
+
+```text
+Views/Home/Admin.cshtml
+```
+
+```html
+<h2>Admin Page</h2>
+
+<p>Only Admin users can access this page.</p>
+```
+
+The controller uses:
+
+```csharp
+[Authorize(Roles = "Admin")]
+```
+
+Therefore, normal users cannot access it.
+
+---
+
+# 12. Create Admin and User Roles
+
+For a simple exam implementation, add role creation in `Program.cs` before `app.Run()`:
+
+```csharp
+using Microsoft.AspNetCore.Identity;
+```
+
+Then:
+
+```csharp
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider
+        .GetRequiredService<RoleManager<IdentityRole>>();
+
+    string[] roles = { "Admin", "User" };
+
+    foreach (var role in roles)
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+            await roleManager.CreateAsync(new IdentityRole(role));
+    }
+}
+```
+
+So the ending of `Program.cs` becomes:
+
+```csharp
+app.MapRazorPages();
+
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider
+        .GetRequiredService<RoleManager<IdentityRole>>();
+
+    string[] roles = { "Admin", "User" };
+
+    foreach (var role in roles)
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+            await roleManager.CreateAsync(new IdentityRole(role));
+    }
+}
+
+app.Run();
+
+# 14. Project Structure
+
+```text
+SecurityApp
+│
+├── Controllers
+│   └── HomeController.cs
+│
+├── Data
+│   └── ApplicationDbContext.cs
+│
+├── Views
+│   └── Home
+│       ├── Index.cshtml
+│       ├── Dashboard.cshtml
+│       └── Admin.cshtml
+│
+├── appsettings.json
+├── Program.cs
+└── security.db
+

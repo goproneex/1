@@ -1,0 +1,480 @@
+# Practical No. 3: CRUD Application using ASP.NET Core MVC
+
+## 1. Create the Project
+
+Open **Visual Studio 2026**.
+
+1. Select **Create a new project**.
+2. Select **ASP.NET Core Web App (Model-View-Controller)**.
+3. Click **Next**.
+4. Project Name: `StudentCRUD`
+5. Select the latest available **.NET** version.
+6. Click **Create**.
+
+---
+
+# 2. Install NuGet Packages
+
+Go to:
+
+**Tools → NuGet Package Manager → Package Manager Console**
+
+Run:
+
+```powershell
+Install-Package Microsoft.EntityFrameworkCore.Sqlite
+Install-Package Microsoft.EntityFrameworkCore.Tools
+```
+
+---
+
+# 3. Create Model
+
+Create:
+
+```text
+Models/Student.cs
+```
+
+### `Student.cs`
+
+```csharp
+using System.ComponentModel.DataAnnotations;
+
+namespace StudentCRUD.Models
+{
+    public class Student
+    {
+        public int Id { get; set; }
+
+        [Required]
+        public string Name { get; set; }
+
+        [Required]
+        public string Email { get; set; }
+
+        public int Age { get; set; }
+
+        public string Course { get; set; }
+    }
+}
+```
+
+---
+
+# 4. Create Database Context
+
+Create:
+
+```text
+Data/ApplicationDbContext.cs
+```
+
+### `ApplicationDbContext.cs`
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+using StudentCRUD.Models;
+
+namespace StudentCRUD.Data
+{
+    public class ApplicationDbContext : DbContext
+    {
+        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
+            : base(options)
+        {
+        }
+
+        public DbSet<Student> Students { get; set; }
+    }
+}
+```
+
+---
+
+# 5. Add SQLite Connection
+
+Open:
+
+```text
+appsettings.json
+```
+
+Add:
+
+```json
+"ConnectionStrings": {
+  "DefaultConnection": "Data Source=students.db"
+}
+```
+
+---
+
+# 6. Configure Database
+
+Open:
+
+```text
+Program.cs
+```
+
+Add:
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+using StudentCRUD.Data;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddControllersWithViews();
+
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlite(
+        builder.Configuration.GetConnectionString("DefaultConnection")));
+
+var app = builder.Build();
+
+app.UseStaticFiles();
+app.UseRouting();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Students}/{action=Index}/{id?}");
+
+app.Run();
+```
+
+---
+
+# 7. Create Database
+
+Open:
+
+**Tools → NuGet Package Manager → Package Manager Console**
+
+Run:
+
+```powershell
+Add-Migration InitialCreate
+Update-Database
+```
+
+This creates the SQLite database:
+
+```text
+students.db
+```
+
+---
+
+# 8. Create Controller
+
+Create:
+
+```text
+Controllers/StudentsController.cs
+```
+
+### `StudentsController.cs`
+
+```csharp
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using StudentCRUD.Data;
+using StudentCRUD.Models;
+
+namespace StudentCRUD.Controllers
+{
+    public class StudentsController : Controller
+    {
+        private readonly ApplicationDbContext db;
+
+        public StudentsController(ApplicationDbContext db)
+        {
+            this.db = db;
+        }
+
+        // READ
+        public async Task<IActionResult> Index()
+        {
+            return View(await db.Students.ToListAsync());
+        }
+
+        // DETAILS
+        public async Task<IActionResult> Details(int id)
+        {
+            var student = await db.Students.FindAsync(id);
+
+            if (student == null)
+                return NotFound();
+
+            return View(student);
+        }
+
+        // CREATE
+        public IActionResult Create()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Create(Student student)
+        {
+            if (ModelState.IsValid)
+            {
+                db.Students.Add(student);
+                await db.SaveChangesAsync();
+                return RedirectToAction("Index");
+            }
+
+            return View(student);
+        }
+
+        // UPDATE
+        public async Task<IActionResult> Edit(int id)
+        {
+            var student = await db.Students.FindAsync(id);
+
+            if (student == null)
+                return NotFound();
+
+            return View(student);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Edit(Student student)
+        {
+            if (ModelState.IsValid)
+            {
+                db.Students.Update(student);
+                await db.SaveChangesAsync();
+                return RedirectToAction("Index");
+            }
+
+            return View(student);
+        }
+
+        // DELETE
+        public async Task<IActionResult> Delete(int id)
+        {
+            var student = await db.Students.FindAsync(id);
+
+            if (student == null)
+                return NotFound();
+
+            db.Students.Remove(student);
+            await db.SaveChangesAsync();
+
+            return RedirectToAction("Index");
+        }
+    }
+}
+```
+
+---
+
+# 9. Create Views
+
+Create this folder:
+
+```text
+Views/Students
+```
+
+Create these files:
+
+```text
+Index.cshtml
+Create.cshtml
+Edit.cshtml
+Details.cshtml
+```
+
+---
+
+## 10. `Index.cshtml`
+
+This displays all students.
+
+```html
+@model IEnumerable<StudentCRUD.Models.Student>
+
+<h2>Student List</h2>
+
+<a asp-action="Create">Add Student</a>
+
+<table border="1" cellpadding="8">
+    <tr>
+        <th>Id</th>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Age</th>
+        <th>Course</th>
+        <th>Actions</th>
+    </tr>
+
+@foreach (var s in Model)
+{
+    <tr>
+        <td>@s.Id</td>
+        <td>@s.Name</td>
+        <td>@s.Email</td>
+        <td>@s.Age</td>
+        <td>@s.Course</td>
+        <td>
+            <a asp-action="Details" asp-route-id="@s.Id">Details</a> |
+            <a asp-action="Edit" asp-route-id="@s.Id">Edit</a> |
+            <a asp-action="Delete" asp-route-id="@s.Id">Delete</a>
+        </td>
+    </tr>
+}
+</table>
+```
+
+---
+
+# 11. `Create.cshtml`
+
+```html
+@model StudentCRUD.Models.Student
+
+<h2>Add Student</h2>
+
+<form asp-action="Create" method="post">
+
+    Name:
+    <input asp-for="Name" />
+    <br><br>
+
+    Email:
+    <input asp-for="Email" />
+    <br><br>
+
+    Age:
+    <input asp-for="Age" />
+    <br><br>
+
+    Course:
+    <input asp-for="Course" />
+    <br><br>
+
+    <button type="submit">Save</button>
+
+</form>
+```
+
+---
+
+# 12. `Edit.cshtml`
+
+```html
+@model StudentCRUD.Models.Student
+
+<h2>Edit Student</h2>
+
+<form asp-action="Edit" method="post">
+
+    <input type="hidden" asp-for="Id" />
+
+    Name:
+    <input asp-for="Name" />
+    <br><br>
+
+    Email:
+    <input asp-for="Email" />
+    <br><br>
+
+    Age:
+    <input asp-for="Age" />
+    <br><br>
+
+    Course:
+    <input asp-for="Course" />
+    <br><br>
+
+    <button type="submit">Update</button>
+
+</form>
+```
+
+---
+
+# 13. `Details.cshtml`
+
+```html
+@model StudentCRUD.Models.Student
+
+<h2>Student Details</h2>
+
+<p>Id: @Model.Id</p>
+<p>Name: @Model.Name</p>
+<p>Email: @Model.Email</p>
+<p>Age: @Model.Age</p>
+<p>Course: @Model.Course</p>
+
+<a asp-action="Index">Back</a>
+```
+
+---
+
+# 14. Project Structure
+
+Your final project should look like:
+
+```text
+StudentCRUD
+│
+├── Controllers
+│   └── StudentsController.cs
+│
+├── Data
+│   └── ApplicationDbContext.cs
+│
+├── Models
+│   └── Student.cs
+│
+├── Views
+│   └── Students
+│       ├── Index.cshtml
+│       ├── Create.cshtml
+│       ├── Edit.cshtml
+│       └── Details.cshtml
+│
+├── appsettings.json
+├── Program.cs
+└── students.db
+```
+
+---
+
+# 15. Run the Application
+
+Press:
+
+```text
+Ctrl + F5
+```
+
+or click the **Run ▶ button** in Visual Studio.
+
+The application opens in the browser.
+
+The URL will be similar to:
+
+```text
+https://localhost:xxxx/Students
+```
+
+---
+
+# 16. CRUD Operations
+
+| Operation | Function |
+|---|---|
+| **Create** | Add a new student |
+| **Read** | Display all students |
+| **Update** | Edit student information |
+| **Delete** | Remove a student |
+| **Details** | Display complete student information |
+
+
